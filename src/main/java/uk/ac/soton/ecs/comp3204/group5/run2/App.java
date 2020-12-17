@@ -1,4 +1,4 @@
-package uk.ac.soton.ecs.comp3204.group5;
+package uk.ac.soton.ecs.comp3204.group5.run2;
 
 import org.openimaj.image.DisplayUtilities;
 import org.openimaj.image.MBFImage;
