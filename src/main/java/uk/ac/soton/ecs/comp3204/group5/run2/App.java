@@ -3,6 +3,7 @@ package uk.ac.soton.ecs.comp3204.group5.run2;
 import org.apache.commons.vfs2.FileSystemException;
 import org.openimaj.data.dataset.*;
 import org.openimaj.experiment.dataset.sampling.GroupSampler;
+import org.openimaj.experiment.dataset.split.GroupedRandomSplitter;
 import org.openimaj.image.DisplayUtilities;
 import org.openimaj.image.FImage;
 import org.openimaj.image.ImageUtilities;
@@ -31,6 +32,6 @@ public class App {
 
         GroupedDataset<String, ListDataset<Record>, Record> sampledData = GroupSampler.sample(recordDataset, 5, false);
 
-        
+        GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<String, Record>(sampledData, 15, 0, 15);
     }
 }
