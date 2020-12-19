@@ -1,31 +1,20 @@
 package uk.ac.soton.ecs.comp3204.group5.run2;
 
-import org.openimaj.image.DisplayUtilities;
-import org.openimaj.image.MBFImage;
-import org.openimaj.image.colour.ColourSpace;
-import org.openimaj.image.colour.RGBColour;
-import org.openimaj.image.processing.convolution.FGaussianConvolve;
-import org.openimaj.image.typography.hershey.HersheyFont;
+import org.apache.commons.vfs2.FileSystemException;
+import org.openimaj.data.dataset.GroupedDataset;
+import org.openimaj.data.dataset.VFSListDataset;
+import org.openimaj.image.FImage;
+import org.openimaj.image.ImageUtilities;
 
 /**
  * OpenIMAJ Hello world!
  *
  */
 public class App {
-    public static void main( String[] args ) {
-    	//Create an image
-        MBFImage image = new MBFImage(320,70, ColourSpace.RGB);
-
-        //Fill the image with white
-        image.fill(RGBColour.WHITE);
-        		        
-        //Render some test into the image
-        image.drawText("Hello World", 10, 60, HersheyFont.CURSIVE, 50, RGBColour.BLACK);
-
-        //Apply a Gaussian blur
-        image.processInplace(new FGaussianConvolve(2f));
-        
-        //Display the image
-        DisplayUtilities.display(image);
+    public static void main( String[] args ) throws FileSystemException {
+//        VFSGroupDataset<FImage> images = new VFSGroupDataset<>( "C:\\Users\\Akhilesh\\Downloads\\training", ImageUtilities.FIMAGE_READER);
+//        System.out.println(images.size());
+//        DisplayUtilities.display(images.getRandomInstance(), "A random image from the dataset");
+//        GroupedDataset<String, VFSListDataset<Record<FImage>>, Record<FImage>> allData = Caltech101.getData(ImageUtilities.FIMAGE_READER);
     }
 }
