@@ -44,6 +44,7 @@ public class App {
         GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<String, Record>(sampledData, 15, 0, 15);
 
         //float[][] patchVectors = new float[][];
+        List<float[]> vectorList = new ArrayList<>();
         //iterate through samples, create fixed size densely-sampled pixel patches from their normalised form
         for(Record record : GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 30)) {
             RectangleSampler sampler = new RectangleSampler(record.getImage().normalise(),4,4,8,8);
@@ -52,19 +53,29 @@ public class App {
             for(Rectangle patch : patchesOfRecord) {
                 FImage img = record.getImage().normalise().extractROI(patch);
                 float[] imgVector = img.getFloatPixelVector();
+                vectorList.add(imgVector);
                 /*add this vector to a data structure
                 * eventually a float[][] needs to be made to create the assigner
                  */
             }
         }
+        float[][] patchVectors = convertToArr(vectorList);
         //from the patch vectors created above, create an assigner
-        //HardAssigner<float[], float[], IntFloatPair> assigner = createVocabulary(patchVectors);
+        HardAssigner<float[], float[], IntFloatPair> assigner = createVocabulary(patchVectors);
         //use assigner to create a FeatureExtractor
-        //FeatureExtractor<DoubleFV,Record> extractor = new Extractor(assigner);
+        FeatureExtractor<DoubleFV,Record> extractor = new Extractor(assigner);
         //use FeatureExtractor to create classifier
-        //LiblinearAnnotator<Record, String> ann = new LiblinearAnnotator<Record, String>(extractor, LiblinearAnnotator.Mode.MULTICLASS, SolverType.L2R_L2LOSS_SVC, 1.0, 0.00001);
+        LiblinearAnnotator<Record, String> ann = new LiblinearAnnotator<Record, String>(extractor, LiblinearAnnotator.Mode.MULTICLASS, SolverType.L2R_L2LOSS_SVC, 1.0, 0.00001);
         //train classifier on dataset
         //test classifier
+    }
+
+    private static float[][] convertToArr(List<float[]> vectors) {
+        float[][] floatArr = new float[vectors.size()][];
+        for(int i = 0; i < vectors.size(); i++) {
+            floatArr[i] = vectors.get(i);
+        }
+        return floatArr;
     }
 
     /**
@@ -91,7 +102,7 @@ public class App {
         @Override
         public DoubleFV extractFeature(Record record) {
             FImage image = record.getImage();
-            BagOfVisualWords bagOfVisualWords = new BagOfVisualWords(assigner);
+            BagOfVisualWords<float[]> bagOfVisualWords = new BagOfVisualWords(assigner);
             //do something
             return null;
         }
