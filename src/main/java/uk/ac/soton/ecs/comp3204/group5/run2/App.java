@@ -15,6 +15,7 @@ import org.openimaj.feature.FeatureExtractor;
 import org.openimaj.feature.SparseIntFV;
 import org.openimaj.feature.local.list.LocalFeatureList;
 import org.openimaj.feature.local.list.MemoryLocalFeatureList;
+import org.openimaj.image.DisplayUtilities;
 import org.openimaj.image.FImage;
 import org.openimaj.image.ImageUtilities;
 import org.openimaj.image.feature.local.aggregate.BagOfVisualWords;
@@ -37,6 +38,8 @@ public class App {
         VFSGroupDataset<FImage> originalDataset = new VFSGroupDataset<>( "C:\\Users\\Akhilesh\\Downloads\\training", ImageUtilities.FIMAGE_READER);
         GroupedDataset<String, ListBackedDataset<Record>, Record> recordDataset = new MapBackedDataset<>();
 
+        System.out.println("LOADED DATASET");
+
         for (final Map.Entry<String, VFSListDataset<FImage>> entry : originalDataset.entrySet()) {
             VFSListDataset<FImage> imageList = entry.getValue();
             ListBackedDataset<Record> recordList = new ListBackedDataset<>();
@@ -48,9 +51,13 @@ public class App {
             recordDataset.put(entry.getKey(), recordList);
         }
 
+        System.out.println("POPULATED RECORD DATASET");
+
         GroupedDataset<String, ListDataset<Record>, Record> sampledData = GroupSampler.sample(recordDataset, 5, false);
 
         GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<>(sampledData, 15, 0, 15);
+
+        System.out.println("SAMPLED DATASET");
 
         List<float[]> vectorList = new ArrayList<>();
         List<FloatKeypoint> floatKeypoints = new ArrayList<>();
@@ -67,23 +74,25 @@ public class App {
                 floatKeypoints.add(new FloatKeypoint(patch.x, patch.y, 0, 1, imgVector));
             }
         }
-        LocalFeatureList<FloatKeypoint> localFeatureList = new MemoryLocalFeatureList<>();
-        float[][] patchVectors = convertToArr(vectorList);
+        LocalFeatureList<FloatKeypoint> localFeatureList = new MemoryLocalFeatureList<>(floatKeypoints);
+        float[][] patchVectors = convertToArr(vectorList); System.out.println("CREATED PATCHES");
         // from the patch vectors created above, create an assigner
-        HardAssigner<float[], float[], IntFloatPair> assigner = createVocabulary(patchVectors);
-        //use assigner to create a FeatureExtractor
-        FeatureExtractor<DoubleFV,Record> extractor = new Extractor(assigner, localFeatureList);
-        //use FeatureExtractor to create classifier
-        LiblinearAnnotator<Record, String> ann = new LiblinearAnnotator<Record, String>(extractor, LiblinearAnnotator.Mode.MULTICLASS, SolverType.L2R_L2LOSS_SVC, 1.0, 0.00001);
-        //train classifier on dataset
+        HardAssigner<float[], float[], IntFloatPair> assigner = createVocabulary(patchVectors); System.out.println("CLUSTERED PATCHES");
+        // use assigner to create a FeatureExtractor
+        FeatureExtractor<DoubleFV,Record> extractor = new Extractor(assigner, localFeatureList); System.out.println("EXTRACT FEATURES");
+        // use FeatureExtractor to create classifier
+        LiblinearAnnotator<Record, String> ann =
+                new LiblinearAnnotator<>(extractor, LiblinearAnnotator.Mode.MULTICLASS, SolverType.L2R_L2LOSS_SVC, 1.0, 0.00001);
+        // train classifier on dataset
+        ann.train(splitData.getTrainingDataset());
         ClassificationEvaluator<CMResult<String>, String, Record> eval =
-                new ClassificationEvaluator<CMResult<String>, String, Record>(
+                new ClassificationEvaluator<>(
                         ann, splitData.getTestDataset(), new CMAnalyser<Record, String>(CMAnalyser.Strategy.SINGLE));
 
         Map<Record, ClassificationResult<String>> guesses = eval.evaluate();
         CMResult<String> result = eval.analyse(guesses);
 
-        //test classifier
+        System.out.println(result);
     }
 
     private static float[][] convertToArr(List<float[]> vectors) {
@@ -122,7 +131,7 @@ public class App {
         public DoubleFV extractFeature(Record record) {
             FImage image = record.getImage();
             BlockSpatialAggregator<float[], SparseIntFV> spatial =
-                    new BlockSpatialAggregator<>(this.bagOfVisualWords, 2, 2);
+                    new BlockSpatialAggregator<>(this.bagOfVisualWords, 10, 10);
 
             return spatial.aggregate(localFeatureList, image.getBounds()).normaliseFV();
         }
