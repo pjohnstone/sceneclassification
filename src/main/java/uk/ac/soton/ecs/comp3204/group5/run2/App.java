@@ -8,9 +8,11 @@ import org.openimaj.experiment.dataset.sampling.GroupedUniformRandomisedSampler;
 import org.openimaj.experiment.dataset.split.GroupedRandomSplitter;
 import org.openimaj.feature.DoubleFV;
 import org.openimaj.feature.FeatureExtractor;
+import org.openimaj.feature.SparseIntFV;
 import org.openimaj.image.FImage;
 import org.openimaj.image.ImageUtilities;
 import org.openimaj.image.feature.local.aggregate.BagOfVisualWords;
+import org.openimaj.image.feature.local.aggregate.BlockSpatialAggregator;
 import org.openimaj.image.pixel.sampling.RectangleSampler;
 import org.openimaj.math.geometry.shape.Rectangle;
 import org.openimaj.ml.annotation.linear.LiblinearAnnotator;
@@ -41,26 +43,23 @@ public class App {
 
         GroupedDataset<String, ListDataset<Record>, Record> sampledData = GroupSampler.sample(recordDataset, 5, false);
 
-        GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<String, Record>(sampledData, 15, 0, 15);
+        GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<>(sampledData, 15, 0, 15);
 
-        //float[][] patchVectors = new float[][];
         List<float[]> vectorList = new ArrayList<>();
-        //iterate through samples, create fixed size densely-sampled pixel patches from their normalised form
+        // iterate through samples, create fixed size densely-sampled pixel patches from their normalised form
         for(Record record : GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 30)) {
+            // mean centre
             RectangleSampler sampler = new RectangleSampler(record.getImage().normalise(),4,4,8,8);
             List<Rectangle> patchesOfRecord = sampler.allRectangles();
-            //take the pixels from the patches, flatten them into a vector, then add the vector to a list
+            // take the pixels from the patches, flatten them into a vector, then add the vector to a list
             for(Rectangle patch : patchesOfRecord) {
                 FImage img = record.getImage().normalise().extractROI(patch);
                 float[] imgVector = img.getFloatPixelVector();
                 vectorList.add(imgVector);
-                /*add this vector to a data structure
-                * eventually a float[][] needs to be made to create the assigner
-                 */
             }
         }
         float[][] patchVectors = convertToArr(vectorList);
-        //from the patch vectors created above, create an assigner
+        // from the patch vectors created above, create an assigner
         HardAssigner<float[], float[], IntFloatPair> assigner = createVocabulary(patchVectors);
         //use assigner to create a FeatureExtractor
         FeatureExtractor<DoubleFV,Record> extractor = new Extractor(assigner);
@@ -93,19 +92,21 @@ public class App {
      * WIP class for a Feature Extractor which uses a HardAssigner to create a BagOfVisualWords feature
      */
     static class Extractor implements FeatureExtractor<DoubleFV, Record> {
-
+        BagOfVisualWords<float[]> bagOfVisualWords;
         HardAssigner<float[], float[], IntFloatPair> assigner;
-        Extractor(HardAssigner<float[], float[], IntFloatPair> assigner) {
+
+        public Extractor(HardAssigner<float[], float[], IntFloatPair> assigner) {
             this.assigner = assigner;
+            this.bagOfVisualWords = new BagOfVisualWords<>(assigner);
         }
 
         @Override
         public DoubleFV extractFeature(Record record) {
             FImage image = record.getImage();
-            BagOfVisualWords<float[]> bagOfVisualWords = new BagOfVisualWords(assigner);
-            //do something
-            return null;
+            BlockSpatialAggregator<float[], SparseIntFV> spatial =
+                    new BlockSpatialAggregator<>(this.bagOfVisualWords, 2, 2);
+
+            // return spatial.aggregate(pdsift.getByteKeypoints(0.015f), image.getBounds()).normaliseFV();
         }
     }
-
 }
