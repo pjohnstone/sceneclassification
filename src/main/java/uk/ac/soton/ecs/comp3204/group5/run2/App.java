@@ -36,23 +36,12 @@ import java.util.List;
 import java.util.Map;
 
 public class App {
+    private static final String filepath1 = "C:\\Users\\peter\\Downloads\\training";
     public static void main( String[] args ) throws FileSystemException {
-        VFSGroupDataset<FImage> originalDataset = new VFSGroupDataset<>( "C:\\Users\\peter\\Downloads\\training", ImageUtilities.FIMAGE_READER);
-        GroupedDataset<String, ListBackedDataset<Record>, Record> recordDataset = new MapBackedDataset<>();
 
+        VFSGroupDataset<FImage> originalDataset = new VFSGroupDataset<>( filepath1, ImageUtilities.FIMAGE_READER);
         System.out.println("LOADED DATASET");
-
-        for (final Map.Entry<String, VFSListDataset<FImage>> entry : originalDataset.entrySet()) {
-            VFSListDataset<FImage> imageList = entry.getValue();
-            ListBackedDataset<Record> recordList = new ListBackedDataset<>();
-            for (int i = 0; i < imageList.size(); i++) {
-                FImage image = imageList.get(i);
-                recordList.add(new Record(image, i+"", entry.getKey()));
-            }
-
-            recordDataset.put(entry.getKey(), recordList);
-        }
-
+        GroupedDataset<String, ListBackedDataset<Record>, Record> recordDataset = Helper.convertToGroupedDataset(originalDataset);
         System.out.println("POPULATED RECORD DATASET");
 
         //GroupedDataset<String, ListDataset<Record>, Record> sampledData = GroupSampler.sample(recordDataset, 5, false);
@@ -64,7 +53,7 @@ public class App {
         List<float[]> vectorList = new ArrayList<>();
         List<FloatKeypoint> floatKeypoints = new ArrayList<>();
         // iterate through samples, create fixed size densely-sampled pixel patches from their normalised form
-        for(Record record : GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 30)) {
+        for(Record record : GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 60)) {
             // mean centre
             RectangleSampler sampler = new RectangleSampler(record.getImage().normalise(),4,4,8,8);
             List<Rectangle> patchesOfRecord = sampler.allRectangles();
@@ -76,12 +65,11 @@ public class App {
                 floatKeypoints.add(new FloatKeypoint(patch.x, patch.y, 0, 1, imgVector));
             }
         }
-        LocalFeatureList<FloatKeypoint> localFeatureList = new MemoryLocalFeatureList<>(floatKeypoints);
         float[][] patchVectors = convertToArr(vectorList); System.out.println("CREATED PATCHES");
         // from the patch vectors created above, create an assigner
         HardAssigner<float[], float[], IntFloatPair> assigner = createVocabulary(patchVectors); System.out.println("CLUSTERED PATCHES");
         // use assigner to create a FeatureExtractor
-        FeatureExtractor<SparseIntFV,Record> extractor = new Extractor(assigner, localFeatureList); System.out.println("EXTRACT FEATURES");
+        FeatureExtractor<SparseIntFV,Record> extractor = new Extractor(assigner); System.out.println("EXTRACT FEATURES");
         // use FeatureExtractor to create classifier
         LiblinearAnnotator<Record, String> ann =
                 new LiblinearAnnotator<>(extractor, LiblinearAnnotator.Mode.MULTICLASS, SolverType.L2R_L2LOSS_SVC, 1.0, 0.00001);
@@ -123,17 +111,14 @@ public class App {
     static class Extractor implements FeatureExtractor<SparseIntFV, Record> {
         BagOfVisualWords<float[]> bagOfVisualWords;
         HardAssigner<float[], float[], IntFloatPair> assigner;
-        LocalFeatureList<FloatKeypoint> localFeatureList;
-        public Extractor(HardAssigner<float[], float[], IntFloatPair> assigner, LocalFeatureList<FloatKeypoint> localFeatureList) {
+        public Extractor(HardAssigner<float[], float[], IntFloatPair> assigner) {
             this.assigner = assigner;
             this.bagOfVisualWords = new BagOfVisualWords<>(assigner);
-            this.localFeatureList = localFeatureList;
         }
 
         @Override
         public SparseIntFV extractFeature(Record record) {
             FImage image = record.getImage();
-
             return bagOfVisualWords.aggregate(Helper.createLocalFeatureList(image));
         }
     }

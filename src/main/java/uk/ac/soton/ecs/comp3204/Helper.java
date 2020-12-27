@@ -1,14 +1,17 @@
 package uk.ac.soton.ecs.comp3204;
 
+import org.openimaj.data.dataset.*;
 import org.openimaj.feature.local.list.LocalFeatureList;
 import org.openimaj.feature.local.list.MemoryLocalFeatureList;
 import org.openimaj.image.FImage;
 import org.openimaj.image.feature.local.keypoints.FloatKeypoint;
 import org.openimaj.image.pixel.sampling.RectangleSampler;
 import org.openimaj.math.geometry.shape.Rectangle;
+import uk.ac.soton.ecs.comp3204.group5.run2.Record;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class Helper {
 
@@ -22,5 +25,20 @@ public class Helper {
             keypoints.add(new FloatKeypoint(r.x, r.y, 0, 1, rVector));
         }
         return new MemoryLocalFeatureList<>(keypoints);
+    }
+
+    public static GroupedDataset<String, ListBackedDataset<Record>, Record> convertToGroupedDataset(VFSGroupDataset<FImage> originalDataset) {
+        GroupedDataset<String, ListBackedDataset<Record>, Record> recordDataset = new MapBackedDataset<>();
+        //iterate through each class in original dataset, create Record objects from images in each class
+        for (final Map.Entry<String, VFSListDataset<FImage>> entry : originalDataset.entrySet()) {
+            VFSListDataset<FImage> imageList = entry.getValue();
+            ListBackedDataset<Record> recordList = new ListBackedDataset<>();
+            for (int i = 0; i < imageList.size(); i++) {
+                FImage image = imageList.get(i);
+                recordList.add(new Record(image, i+"", entry.getKey()));
+            }
+            recordDataset.put(entry.getKey(), recordList);
+        }
+        return recordDataset;
     }
 }
