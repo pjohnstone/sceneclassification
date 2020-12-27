@@ -1,4 +1,4 @@
-package uk.ac.soton.ecs.comp3204.group5.run2;
+package uk.ac.soton.ecs.comp3204.group5;
 
 import org.openimaj.data.identity.Identifiable;
 import org.openimaj.image.FImage;

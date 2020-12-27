@@ -1,4 +1,4 @@
-package uk.ac.soton.ecs.comp3204;
+package uk.ac.soton.ecs.comp3204.group5;
 
 import org.openimaj.data.dataset.*;
 import org.openimaj.feature.local.list.LocalFeatureList;
@@ -7,7 +7,6 @@ import org.openimaj.image.FImage;
 import org.openimaj.image.feature.local.keypoints.FloatKeypoint;
 import org.openimaj.image.pixel.sampling.RectangleSampler;
 import org.openimaj.math.geometry.shape.Rectangle;
-import uk.ac.soton.ecs.comp3204.group5.run2.Record;
 
 import java.util.ArrayList;
 import java.util.List;
