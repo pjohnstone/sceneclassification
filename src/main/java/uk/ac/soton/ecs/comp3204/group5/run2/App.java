@@ -20,6 +20,7 @@ import org.openimaj.image.FImage;
 import org.openimaj.image.ImageUtilities;
 import org.openimaj.image.feature.local.aggregate.BagOfVisualWords;
 import org.openimaj.image.feature.local.aggregate.BlockSpatialAggregator;
+import org.openimaj.image.feature.local.aggregate.PyramidSpatialAggregator;
 import org.openimaj.image.feature.local.keypoints.FloatKeypoint;
 import org.openimaj.image.pixel.sampling.RectangleSampler;
 import org.openimaj.math.geometry.shape.Rectangle;
@@ -56,7 +57,7 @@ public class App {
 
         //GroupedDataset<String, ListDataset<Record>, Record> sampledData = GroupSampler.sample(recordDataset, 5, false);
 
-        GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<>(recordDataset, 15, 0, 15);
+        GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<>(recordDataset, 80, 0, 20);
 
         System.out.println("SAMPLED DATASET");
 
@@ -80,16 +81,17 @@ public class App {
         // from the patch vectors created above, create an assigner
         HardAssigner<float[], float[], IntFloatPair> assigner = createVocabulary(patchVectors); System.out.println("CLUSTERED PATCHES");
         // use assigner to create a FeatureExtractor
-        FeatureExtractor<DoubleFV,Record> extractor = new Extractor(assigner, localFeatureList); System.out.println("EXTRACT FEATURES");
+        FeatureExtractor<SparseIntFV,Record> extractor = new Extractor(assigner, localFeatureList); System.out.println("EXTRACT FEATURES");
         // use FeatureExtractor to create classifier
         LiblinearAnnotator<Record, String> ann =
                 new LiblinearAnnotator<>(extractor, LiblinearAnnotator.Mode.MULTICLASS, SolverType.L2R_L2LOSS_SVC, 1.0, 0.00001);
         // train classifier on dataset
+        System.out.println("TRAIN CLASSIFIER");
         ann.train(splitData.getTrainingDataset());
         ClassificationEvaluator<CMResult<String>, String, Record> eval =
                 new ClassificationEvaluator<>(
                         ann, splitData.getTestDataset(), new CMAnalyser<Record, String>(CMAnalyser.Strategy.SINGLE));
-
+        System.out.println("EVALUATE CLASSIFIER");
         Map<Record, ClassificationResult<String>> guesses = eval.evaluate();
         CMResult<String> result = eval.analyse(guesses);
 
@@ -110,7 +112,7 @@ public class App {
      * @return - a default Hard Assigner created from applying Kmeans to the input
      */
     static HardAssigner<float[], float[], IntFloatPair> createVocabulary(float[][] patches) {
-        FloatKMeans kMeans = FloatKMeans.createExact(500);
+        FloatKMeans kMeans = FloatKMeans.createExact(600);
         FloatCentroidsResult result = kMeans.cluster(patches);
         return result.defaultHardAssigner();
     }
@@ -118,7 +120,7 @@ public class App {
     /**
      * WIP class for a Feature Extractor which uses a HardAssigner to create a BagOfVisualWords feature
      */
-    static class Extractor implements FeatureExtractor<DoubleFV, Record> {
+    static class Extractor implements FeatureExtractor<SparseIntFV, Record> {
         BagOfVisualWords<float[]> bagOfVisualWords;
         HardAssigner<float[], float[], IntFloatPair> assigner;
         LocalFeatureList<FloatKeypoint> localFeatureList;
@@ -129,12 +131,10 @@ public class App {
         }
 
         @Override
-        public DoubleFV extractFeature(Record record) {
+        public SparseIntFV extractFeature(Record record) {
             FImage image = record.getImage();
-            BlockSpatialAggregator<float[], SparseIntFV> spatial =
-                    new BlockSpatialAggregator<>(this.bagOfVisualWords, 2, 2);
 
-            return spatial.aggregate(Helper.createLocalFeatureList(image), image.getBounds()).normaliseFV();
+            return bagOfVisualWords.aggregate(Helper.createLocalFeatureList(image));
         }
     }
 }
