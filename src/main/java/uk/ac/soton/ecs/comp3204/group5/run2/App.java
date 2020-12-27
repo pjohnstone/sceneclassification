@@ -28,6 +28,7 @@ import org.openimaj.ml.clustering.FloatCentroidsResult;
 import org.openimaj.ml.clustering.assignment.HardAssigner;
 import org.openimaj.ml.clustering.kmeans.FloatKMeans;
 import org.openimaj.util.pair.IntFloatPair;
+import uk.ac.soton.ecs.comp3204.Helper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +36,7 @@ import java.util.Map;
 
 public class App {
     public static void main( String[] args ) throws FileSystemException {
-        VFSGroupDataset<FImage> originalDataset = new VFSGroupDataset<>( "C:\\Users\\Akhilesh\\Downloads\\training", ImageUtilities.FIMAGE_READER);
+        VFSGroupDataset<FImage> originalDataset = new VFSGroupDataset<>( "C:\\Users\\peter\\Downloads\\training", ImageUtilities.FIMAGE_READER);
         GroupedDataset<String, ListBackedDataset<Record>, Record> recordDataset = new MapBackedDataset<>();
 
         System.out.println("LOADED DATASET");
@@ -53,9 +54,9 @@ public class App {
 
         System.out.println("POPULATED RECORD DATASET");
 
-        GroupedDataset<String, ListDataset<Record>, Record> sampledData = GroupSampler.sample(recordDataset, 5, false);
+        //GroupedDataset<String, ListDataset<Record>, Record> sampledData = GroupSampler.sample(recordDataset, 5, false);
 
-        GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<>(sampledData, 15, 0, 15);
+        GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<>(recordDataset, 15, 0, 15);
 
         System.out.println("SAMPLED DATASET");
 
@@ -131,9 +132,9 @@ public class App {
         public DoubleFV extractFeature(Record record) {
             FImage image = record.getImage();
             BlockSpatialAggregator<float[], SparseIntFV> spatial =
-                    new BlockSpatialAggregator<>(this.bagOfVisualWords, 10, 10);
+                    new BlockSpatialAggregator<>(this.bagOfVisualWords, 2, 2);
 
-            return spatial.aggregate(localFeatureList, image.getBounds()).normaliseFV();
+            return spatial.aggregate(Helper.createLocalFeatureList(image), image.getBounds()).normaliseFV();
         }
     }
 }
