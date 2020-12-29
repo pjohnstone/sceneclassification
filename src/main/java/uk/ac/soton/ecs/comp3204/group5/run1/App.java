@@ -1,5 +1,6 @@
 package uk.ac.soton.ecs.comp3204.group5.run1;
 
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -226,7 +227,7 @@ public class App {
 			//generate new randomly split dataset and calculate accuracies for each k value
 			for(int i = 0 ; i < iter ; i++) {
 				//use GroupedRandomSplitter to generate train and test dataset
-				GroupedRandomSplitter<String,FImage> splitter = new GroupedRandomSplitter(input,90,0,10);
+				GroupedRandomSplitter<String,FImage> splitter = new GroupedRandomSplitter(input,80,0,20);
 	    		GroupedDataset<String, ListDataset<FImage>, FImage> train = splitter.getTrainingDataset();
 	    		GroupedDataset<String, ListDataset<FImage>, FImage> test = splitter.getTestDataset();
 	    		//train new knn classifier using train dataset
@@ -253,17 +254,17 @@ public class App {
 			a8 = a8/iter;
 			a9 = a9/iter;
 			a10 = a10/iter;
-
-			System.out.println("k = 1: " + a1);
-			System.out.println("k = 2: " + a2);
-			System.out.println("k = 3: " + a3);
-			System.out.println("k = 4: " + a4);
-			System.out.println("k = 5: " + a5);
-			System.out.println("k = 6: " + a6);
-			System.out.println("k = 7: " + a3);
-			System.out.println("k = 8: " + a4);
-			System.out.println("k = 9: " + a5);
-			System.out.println("k = 10: " + a6);
+			
+			System.out.format("k = 1: %.2f  ", a1);
+			System.out.format("k = 2: %.2f  ", a2);
+			System.out.format("k = 3: %.2f  ", a3);
+			System.out.format("k = 4: %.2f  ", a4);
+			System.out.format("k = 5: %.2f  ", a5);
+			System.out.format("k = 6: %.2f  ", a6);
+			System.out.format("k = 7: %.2f  ", a7);
+			System.out.format("k = 8: %.2f  ", a8);
+			System.out.format("k = 9: %.2f  ", a9);
+			System.out.format("k = 10: %.2f  ", a10);
     	} catch (FileSystemException e) {
 			e.printStackTrace();
 		}
@@ -271,7 +272,8 @@ public class App {
 	
 	
     public static void main( String[] args ) {
-    	classificationRun();
-    	//accuracyRun();
+    	//classificationRun();
+    	accuracyRun();
     }
 }
+
