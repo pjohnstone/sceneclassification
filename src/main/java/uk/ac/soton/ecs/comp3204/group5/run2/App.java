@@ -2,6 +2,7 @@ package uk.ac.soton.ecs.comp3204.group5.run2;
 
 import de.bwaldvogel.liblinear.SolverType;
 import org.apache.commons.vfs2.FileSystemException;
+import org.openimaj.data.DataSource;
 import org.openimaj.data.dataset.*;
 import org.openimaj.experiment.dataset.sampling.GroupedUniformRandomisedSampler;
 import org.openimaj.experiment.dataset.split.GroupedRandomSplitter;
@@ -10,7 +11,13 @@ import org.openimaj.experiment.evaluation.classification.ClassificationResult;
 import org.openimaj.experiment.evaluation.classification.analysers.confusionmatrix.CMAnalyser;
 import org.openimaj.experiment.evaluation.classification.analysers.confusionmatrix.CMResult;
 import org.openimaj.feature.FeatureExtractor;
+import org.openimaj.feature.FloatFV;
 import org.openimaj.feature.SparseIntFV;
+import org.openimaj.feature.local.LocalFeatureImpl;
+import org.openimaj.feature.local.SpatialLocation;
+import org.openimaj.feature.local.data.LocalFeatureListDataSource;
+import org.openimaj.feature.local.list.LocalFeatureList;
+import org.openimaj.feature.local.list.MemoryLocalFeatureList;
 import org.openimaj.image.FImage;
 import org.openimaj.image.ImageUtilities;
 import org.openimaj.image.feature.local.aggregate.BagOfVisualWords;
@@ -45,23 +52,32 @@ public class App {
         System.out.println("SAMPLED DATASET");
 
         List<float[]> vectorList = new ArrayList<>();
-        List<FloatKeypoint> floatKeypoints = new ArrayList<>();
+        List<LocalFeatureImpl<SpatialLocation, FloatFV>> sampleFeatures = new ArrayList<>();
         // iterate through samples, create fixed size densely-sampled pixel patches from their normalised form
-        for(Record record : GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 60)) {
-            // mean centre
+        /*
+        for(Record record : GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 15)) {
+
             RectangleSampler sampler = new RectangleSampler(record.getImage().normalise(),4,4,8,8);
             List<Rectangle> patchesOfRecord = sampler.allRectangles();
             // take the pixels from the patches, flatten them into a vector, then add the vector to a list
+
             for(Rectangle patch : patchesOfRecord) {
                 FImage img = record.getImage().normalise().extractROI(patch);
                 float[] imgVector = img.getFloatPixelVector();
                 vectorList.add(imgVector);
-                floatKeypoints.add(new FloatKeypoint(patch.x, patch.y, 0, 1, imgVector));
+                SpatialLocation location = new SpatialLocation(patch.x, patch.y);
+                sampleFeatures.add(new LocalFeatureImpl<SpatialLocation, FloatFV>(location, new FloatFV(imgVector)));
             }
+
         }
-        float[][] patchVectors = convertToArr(vectorList); System.out.println("CREATED PATCHES");
+        */
+        //float[][] patchVectors = convertToArr(vectorList); System.out.println("CREATED PATCHES");
         // from the patch vectors created above, create an assigner
-        HardAssigner<float[], float[], IntFloatPair> assigner = createVocabulary(patchVectors); System.out.println("CLUSTERED PATCHES");
+        //HardAssigner<float[], float[], IntFloatPair> assigner = createVocabulary(patchVectors); System.out.println("CLUSTERED PATCHES");
+
+        //LocalFeatureList<LocalFeatureImpl<SpatialLocation, FloatFV>> sampleLfl = new MemoryLocalFeatureList<>(sampleFeatures);
+        HardAssigner<float[], float[], IntFloatPair> assigner = trainQuantiser(GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 30));
+
         // use assigner to create a FeatureExtractor
         FeatureExtractor<SparseIntFV,Record> extractor = new Extractor(assigner); System.out.println("EXTRACT FEATURES");
         // use FeatureExtractor to create classifier
@@ -88,13 +104,35 @@ public class App {
         return floatArr;
     }
 
+    static HardAssigner<float[], float[], IntFloatPair> createClusters(LocalFeatureList<LocalFeatureImpl<SpatialLocation, FloatFV>> sample) {
+        DataSource<float[]> dataSource = new LocalFeatureListDataSource<>(sample);
+        FloatKMeans kMeans = FloatKMeans.createKDTreeEnsemble(500);
+        FloatCentroidsResult result = kMeans.cluster(dataSource);
+        return  result.defaultHardAssigner();
+    }
+
+    static HardAssigner<float[], float[], IntFloatPair> trainQuantiser(GroupedDataset<String, ListDataset<Record>, Record> sample) {
+        List<LocalFeatureList<LocalFeatureImpl<SpatialLocation, FloatFV>>> allKeys = new ArrayList<>();
+        for(Record record : sample) {
+            allKeys.add(Helper.getFeatures(record.getImage()));
+        }
+
+        if (allKeys.size() > 10000) {
+            allKeys = allKeys.subList(0, 10000);
+        }
+        FloatKMeans kMeans = FloatKMeans.createKDTreeEnsemble(500);
+        DataSource<float[]> dataSource = new LocalFeatureListDataSource<>(allKeys);
+        FloatCentroidsResult result = kMeans.cluster(dataSource);
+        return  result.defaultHardAssigner();
+    }
+
     /**
      * Learn a vocabulary by clustering a sample of pixel patches
      * @param patches - an array of float vectors of patches of sample images
      * @return - a default Hard Assigner created from applying Kmeans to the input
      */
     static HardAssigner<float[], float[], IntFloatPair> createVocabulary(float[][] patches) {
-        FloatKMeans kMeans = FloatKMeans.createExact(600);
+        FloatKMeans kMeans = FloatKMeans.createExact(500);
         FloatCentroidsResult result = kMeans.cluster(patches);
         return result.defaultHardAssigner();
     }
@@ -113,7 +151,7 @@ public class App {
         @Override
         public SparseIntFV extractFeature(Record record) {
             FImage image = record.getImage();
-            return bagOfVisualWords.aggregate(Helper.createLocalFeatureList(image));
+            return bagOfVisualWords.aggregate(Helper.getFeatures(image));
         }
     }
 }

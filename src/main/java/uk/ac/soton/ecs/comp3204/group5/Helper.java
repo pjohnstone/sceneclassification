@@ -1,6 +1,9 @@
 package uk.ac.soton.ecs.comp3204.group5;
 
 import org.openimaj.data.dataset.*;
+import org.openimaj.feature.FloatFV;
+import org.openimaj.feature.local.LocalFeatureImpl;
+import org.openimaj.feature.local.SpatialLocation;
 import org.openimaj.feature.local.list.LocalFeatureList;
 import org.openimaj.feature.local.list.MemoryLocalFeatureList;
 import org.openimaj.image.FImage;
@@ -26,6 +29,19 @@ public class Helper {
         return new MemoryLocalFeatureList<>(keypoints);
     }
 
+    public static LocalFeatureList<LocalFeatureImpl<SpatialLocation, FloatFV>> getFeatures(FImage image) {
+        ArrayList<LocalFeatureImpl<SpatialLocation, FloatFV>> features = new ArrayList<>();
+        RectangleSampler sampler = new RectangleSampler(image.normalise(),4,4,8,8);
+        List<Rectangle> rectangles = sampler.allRectangles();
+        for(Rectangle r : rectangles) {
+            FImage rImg = image.normalise().extractROI(r);
+            float[] rVector = rImg.getFloatPixelVector();
+            //keypoints.add(new FloatKeypoint(r.x, r.y, 0, 1, rVector));
+            SpatialLocation rLoc = new SpatialLocation(r.x, r.y);
+            features.add(new LocalFeatureImpl<>(rLoc, new FloatFV(rVector)));
+        }
+        return new MemoryLocalFeatureList<>(features);
+    }
     public static GroupedDataset<String, ListBackedDataset<Record>, Record> convertToGroupedDataset(VFSGroupDataset<FImage> originalDataset) {
         GroupedDataset<String, ListBackedDataset<Record>, Record> recordDataset = new MapBackedDataset<>();
         //iterate through each class in original dataset, create Record objects from images in each class
