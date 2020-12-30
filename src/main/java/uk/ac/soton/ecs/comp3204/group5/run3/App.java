@@ -39,13 +39,13 @@ public class App {
     public static void main( String[] args ) throws FileSystemException {
         VFSGroupDataset<FImage> originalDataset = new VFSGroupDataset<>(filepath2, ImageUtilities.FIMAGE_READER);
         GroupedDataset<String, ListBackedDataset<Record>, Record> recordDataset = Helper.convertToGroupedDataset(originalDataset);
-        GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<>(recordDataset, 80, 0, 20);
+        GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<>(recordDataset, 20, 0, 5);
 
         DenseSIFT dsift = new DenseSIFT(5, 7);
         PyramidDenseSIFT<FImage> pdsift = new PyramidDenseSIFT<FImage>(dsift, 6f, 7);
 
         HardAssigner<float[], float[], IntFloatPair> assigner =
-                trainQuantiser(GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 30), pdsift);
+                trainQuantiser(GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 101), pdsift);
 
         FeatureExtractor<SparseIntFV, Record> extractor = new DenseGaussianExtractor(pdsift, assigner);
         LiblinearAnnotator<Record, String> ann = new LiblinearAnnotator<>(
