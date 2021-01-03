@@ -24,7 +24,7 @@ public class App2 {
         VFSGroupDataset<FImage> input = new VFSGroupDataset<FImage>("C:\\Users\\Nawab\\Downloads\\training", ImageUtilities.FIMAGE_READER);
 
         // Use GroupedRandomSplitter to generate train and test dataset
-        GroupedRandomSplitter<String, Record> splitter = new GroupedRandomSplitter(input,80,0,20);
+        GroupedRandomSplitter<String, Record> splitter = new GroupedRandomSplitter(input,75,0,25);
 
 
         for(int k = 1; k < 20; k++) {
