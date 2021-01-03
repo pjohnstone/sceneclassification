@@ -39,7 +39,7 @@ public class App2 {
                     new ClassificationEvaluator<>(
                             knnAnnotator, splitter.getTestDataset(), new CMAnalyser<Record, String>(CMAnalyser.Strategy.SINGLE));
 
-            System.out.println("EVALUATE CLASSIFIER " + k);
+            System.out.println("EVALUATE CLASSIFIER K = " + k);
             Map<Record, ClassificationResult<String>> guesses = eval.evaluate();
             CMResult<String> result = eval.analyse(guesses);
 

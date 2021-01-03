@@ -3,6 +3,7 @@ package uk.ac.soton.ecs.comp3204.group5.run1;
 import org.openimaj.feature.DoubleFV;
 import org.openimaj.feature.FeatureExtractor;
 import org.openimaj.image.FImage;
+import org.openimaj.image.processing.algorithm.MeanCenter;
 import org.openimaj.image.processing.resize.ResizeProcessor;
 
 public class TinyImageExtractor implements FeatureExtractor<DoubleFV, FImage> {
@@ -24,14 +25,14 @@ public class TinyImageExtractor implements FeatureExtractor<DoubleFV, FImage> {
         int minSide = Math.min(image.height , image.width);
         FImage cropped = image.extractCenter(minSide, minSide);
 
-        // Resizes image to 16 by 16 pixels (or generally size by size)
-        FImage tinyImage = ResizeProcessor.resample(cropped, this.size, this.size);
+        // Resize image to 16 by 16 pixels (or generally size by size) and then normalise
+        FImage tinyImage = ResizeProcessor.resample(cropped, this.size, this.size).normalise();
 
         // Mean center the image
-        float mean = tinyImage.sum() / (float) Math.pow(this.size, 2);
-        FImage centeredTinyImage = tinyImage.subtract(mean);
+        MeanCenter meanCenter = new MeanCenter();
+        meanCenter.processImage(tinyImage);
 
         // Return normalised FV
-        return new DoubleFV(centeredTinyImage.getDoublePixelVector()).normaliseFV();
+        return new DoubleFV(tinyImage.getDoublePixelVector());
     }
 }
