@@ -13,6 +13,7 @@ import org.openimaj.experiment.evaluation.classification.ClassificationEvaluator
 import org.openimaj.experiment.evaluation.classification.ClassificationResult;
 import org.openimaj.experiment.evaluation.classification.analysers.confusionmatrix.CMAnalyser;
 import org.openimaj.experiment.evaluation.classification.analysers.confusionmatrix.CMResult;
+import org.openimaj.feature.DoubleFV;
 import org.openimaj.feature.FeatureExtractor;
 import org.openimaj.feature.SparseIntFV;
 import org.openimaj.feature.local.data.LocalFeatureListDataSource;
@@ -26,6 +27,7 @@ import org.openimaj.ml.annotation.linear.LiblinearAnnotator;
 import org.openimaj.ml.clustering.FloatCentroidsResult;
 import org.openimaj.ml.clustering.assignment.HardAssigner;
 import org.openimaj.ml.clustering.kmeans.FloatKMeans;
+import org.openimaj.ml.kernel.HomogeneousKernelMap;
 import org.openimaj.util.pair.IntFloatPair;
 import uk.ac.soton.ecs.comp3204.group5.Helper;
 import uk.ac.soton.ecs.comp3204.group5.Record;
@@ -41,13 +43,14 @@ public class App {
         GroupedDataset<String, ListBackedDataset<Record>, Record> recordDataset = Helper.convertToGroupedDataset(originalDataset);
         GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<>(recordDataset, 20, 0, 5);
 
-        DenseSIFT dsift = new DenseSIFT(5, 7);
-        PyramidDenseSIFT<FImage> pdsift = new PyramidDenseSIFT<FImage>(dsift, 6f, 7);
+        DenseSIFT dsift = new DenseSIFT(3, 7);
+        PyramidDenseSIFT<FImage> pdsift = new PyramidDenseSIFT<FImage>(dsift, 6f, 4, 6, 8, 10);
 
         HardAssigner<float[], float[], IntFloatPair> assigner =
-                trainQuantiser(GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 101), pdsift);
+                trainQuantiser(GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 45), pdsift);
 
-        FeatureExtractor<SparseIntFV, Record> extractor = new DenseGaussianExtractor(pdsift, assigner);
+        HomogeneousKernelMap hkm = new HomogeneousKernelMap(HomogeneousKernelMap.KernelType.Chi2, HomogeneousKernelMap.WindowType.Rectangular);
+        FeatureExtractor<DoubleFV, Record> extractor = hkm.createWrappedExtractor(new PHOWExtractor(pdsift, assigner));
         LiblinearAnnotator<Record, String> ann = new LiblinearAnnotator<>(
                 extractor, LiblinearAnnotator.Mode.MULTICLASS, SolverType.L2R_L2LOSS_SVC, 1.0, 0.00001);
         ann.train(splitData.getTrainingDataset());
