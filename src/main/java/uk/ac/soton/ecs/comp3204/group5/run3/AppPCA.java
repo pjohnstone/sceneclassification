@@ -33,7 +33,7 @@ import java.util.Map;
 
 public class AppPCA {
 
-    private static final String filepath2 = "C:\\Users\\Akhilesh\\Downloads\\training";
+    private static final String filepath2 = "C:\\Users\\as14g18\\Downloads\\training\\training";
 
     public static void main( String[] args ) throws FileSystemException {
         VFSGroupDataset<FImage> originalDataset = new VFSGroupDataset<>(filepath2, ImageUtilities.FIMAGE_READER);
