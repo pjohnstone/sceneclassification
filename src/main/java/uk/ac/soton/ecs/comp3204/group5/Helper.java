@@ -9,6 +9,7 @@ import org.openimaj.feature.local.list.MemoryLocalFeatureList;
 import org.openimaj.image.FImage;
 import org.openimaj.image.feature.local.keypoints.FloatKeypoint;
 import org.openimaj.image.pixel.sampling.RectangleSampler;
+import org.openimaj.image.processing.resize.ResizeProcessor;
 import org.openimaj.math.geometry.shape.Rectangle;
 
 import java.util.ArrayList;
@@ -66,6 +67,25 @@ public class Helper {
             for (int i = 0; i < imageList.size(); i++) {
                 FImage image = imageList.get(i);
                 recordList.add(new Record(image, i+"", entry.getKey()));
+            }
+            //add to GroupedDataset
+            recordDataset.put(entry.getKey(), recordList);
+        }
+        return recordDataset;
+    }
+
+    public static GroupedDataset<String, ListBackedDataset<FImage>, FImage> convertToNormalisedDataset(VFSGroupDataset<FImage> originalDataset) {
+        GroupedDataset<String, ListBackedDataset<FImage>, FImage> recordDataset = new MapBackedDataset<>();
+        //iterate through each class in original dataset
+        ResizeProcessor resize = new ResizeProcessor(200, 200, false);
+        for (final Map.Entry<String, VFSListDataset<FImage>> entry : originalDataset.entrySet()) {
+            //create a ListBackedDataset of each image class
+            VFSListDataset<FImage> imageList = entry.getValue();
+            ListBackedDataset<FImage> recordList = new ListBackedDataset<>();
+            for (int i = 0; i < imageList.size(); i++) {
+                FImage image = imageList.get(i);
+                FImage newImage = image.process(resize).normalise();
+                recordList.add(newImage);
             }
             //add to GroupedDataset
             recordDataset.put(entry.getKey(), recordList);
