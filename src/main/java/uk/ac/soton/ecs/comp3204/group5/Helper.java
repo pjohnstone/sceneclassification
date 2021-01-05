@@ -7,12 +7,20 @@ import org.openimaj.feature.local.SpatialLocation;
 import org.openimaj.feature.local.list.LocalFeatureList;
 import org.openimaj.feature.local.list.MemoryLocalFeatureList;
 import org.openimaj.image.FImage;
+import org.openimaj.image.ImageUtilities;
 import org.openimaj.image.feature.local.keypoints.FloatKeypoint;
 import org.openimaj.image.pixel.sampling.RectangleSampler;
 import org.openimaj.image.processing.resize.ResizeProcessor;
 import org.openimaj.math.geometry.shape.Rectangle;
+import org.openimaj.ml.annotation.AbstractAnnotator;
+import org.openimaj.ml.annotation.ScoredAnnotation;
+import org.openimaj.ml.annotation.linear.LiblinearAnnotator;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -66,7 +74,7 @@ public class Helper {
             ListBackedDataset<Record> recordList = new ListBackedDataset<>();
             for (int i = 0; i < imageList.size(); i++) {
                 FImage image = imageList.get(i);
-                recordList.add(new Record(image, i+"", entry.getKey()));
+                recordList.add(new Record(image, imageList.getID(i), entry.getKey()));
             }
             //add to GroupedDataset
             recordDataset.put(entry.getKey(), recordList);
@@ -91,5 +99,27 @@ public class Helper {
             recordDataset.put(entry.getKey(), recordList);
         }
         return recordDataset;
+    }
+
+    public static void makePredictions(AbstractAnnotator<Record, String> annotator, String testingFilePath, String outputLocation) throws IOException {
+
+        VFSListDataset<FImage> testing = new VFSListDataset<FImage>(testingFilePath, ImageUtilities.FIMAGE_READER);
+        List<String> predictions = new ArrayList<>();
+
+        BufferedWriter writer = new BufferedWriter(new FileWriter(outputLocation));
+        for(int i = 0; i < testing.numInstances(); i ++) {
+            Record r = new Record(testing.get(i), testing.getID(i), "unknown");
+            List<ScoredAnnotation<String>> result = annotator.annotate(r);
+            Collections.sort(result, Collections.reverseOrder());
+            String prediction = r.getID() + ' ' + result.get(0).annotation;
+            predictions.add(prediction);
+        }
+        Collections.sort(predictions);
+
+        for(String p : predictions) {
+            writer.write(p);
+            writer.newLine();
+        }
+        writer.close();
     }
 }

@@ -28,15 +28,16 @@ import org.openimaj.util.pair.IntFloatPair;
 import uk.ac.soton.ecs.comp3204.group5.Helper;
 import uk.ac.soton.ecs.comp3204.group5.Record;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public class App {
     private static final String filepath1 = "C:\\Users\\peter\\Downloads\\training";
-    public static void main( String[] args ) throws FileSystemException {
+    public static void main( String[] args ) throws IOException {
         //load dataset from file
-        VFSGroupDataset<FImage> originalDataset = new VFSGroupDataset<>( filepath1, ImageUtilities.FIMAGE_READER);
+        VFSGroupDataset<FImage> originalDataset = new VFSGroupDataset<>( "H:\\COMP3204\\training", ImageUtilities.FIMAGE_READER);
         System.out.println("LOADED DATASET");
         //convert to GroupedDataset to provide more functionality
         GroupedDataset<String, ListBackedDataset<Record>, Record> recordDataset = Helper.convertToGroupedDataset(originalDataset);
@@ -46,7 +47,7 @@ public class App {
         GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<>(recordDataset, 80, 0, 20);
         System.out.println("SPLIT DATASET INTO TRAINING AND TESTING");
 
-        HardAssigner<float[], float[], IntFloatPair> assigner = trainQuantiser(GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 30));
+        HardAssigner<float[], float[], IntFloatPair> assigner = trainQuantiser(GroupedUniformRandomisedSampler.sample(recordDataset, 30));
         System.out.println("CLUSTERING DONE");
         // use assigner to create a FeatureExtractor
         FeatureExtractor<SparseIntFV,Record> extractor = new BOVWExtractor(assigner);
@@ -56,6 +57,7 @@ public class App {
         // train classifier on dataset
         System.out.println("TRAIN CLASSIFIER");
         ann.train(splitData.getTrainingDataset());
+        ann.train(recordDataset);
         ClassificationEvaluator<CMResult<String>, String, Record> eval =
                 new ClassificationEvaluator<>(
                         ann, splitData.getTestDataset(), new CMAnalyser<Record, String>(CMAnalyser.Strategy.SINGLE));
@@ -64,6 +66,10 @@ public class App {
         CMResult<String> result = eval.analyse(guesses);
 
         System.out.println(result);
+
+        //if making predictions on test dataset, uncomment this code and make sure you're training on the whole dataset
+        //and change file locations accordingly
+        Helper.makePredictions(ann, "H:\\COMP3204\\testing", "H:\\COMP3204\\run2.txt" );
     }
 
     /**
@@ -71,7 +77,7 @@ public class App {
      * @param sample - a subset of the training dataset
      * @return a vocabulary of visual words
      */
-    static HardAssigner<float[], float[], IntFloatPair> trainQuantiser(GroupedDataset<String, ListDataset<Record>, Record> sample) {
+    private static HardAssigner<float[], float[], IntFloatPair> trainQuantiser(GroupedDataset<String, ListDataset<Record>, Record> sample) {
         List<LocalFeatureList<LocalFeatureImpl<SpatialLocation, FloatFV>>> allKeys = new ArrayList<>();
         for(Record record : sample) {
             allKeys.add(Helper.getPixelPatchFeatures(record.getImage()));
@@ -93,7 +99,7 @@ public class App {
     static class BOVWExtractor implements FeatureExtractor<SparseIntFV, Record> {
         BagOfVisualWords<float[]> bagOfVisualWords;
         HardAssigner<float[], float[], IntFloatPair> assigner;
-        public BOVWExtractor(HardAssigner<float[], float[], IntFloatPair> assigner) {
+        BOVWExtractor(HardAssigner<float[], float[], IntFloatPair> assigner) {
             this.assigner = assigner;
             this.bagOfVisualWords = new BagOfVisualWords<>(assigner);
         }
