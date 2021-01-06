@@ -1,273 +1,99 @@
 package uk.ac.soton.ecs.comp3204.group5.run1;
 
-
-import org.apache.commons.vfs2.FileSystemException;
-import org.openimaj.data.dataset.GroupedDataset;
-import org.openimaj.data.dataset.ListDataset;
-import org.openimaj.data.dataset.VFSGroupDataset;
-import org.openimaj.data.dataset.VFSListDataset;
+import org.openimaj.data.dataset.*;
 import org.openimaj.experiment.dataset.split.GroupedRandomSplitter;
+import org.openimaj.experiment.evaluation.classification.ClassificationEvaluator;
+import org.openimaj.experiment.evaluation.classification.ClassificationResult;
+import org.openimaj.experiment.evaluation.classification.analysers.confusionmatrix.CMAnalyser;
+import org.openimaj.experiment.evaluation.classification.analysers.confusionmatrix.CMResult;
+import org.openimaj.feature.DoubleFVComparison;
 import org.openimaj.image.FImage;
 import org.openimaj.image.ImageUtilities;
-import org.openimaj.image.processing.resize.ResizeProcessor;
-import org.openimaj.knn.DoubleNearestNeighboursExact;
-import org.openimaj.util.pair.IntDoublePair;
+import org.openimaj.ml.annotation.ScoredAnnotation;
+import org.openimaj.ml.annotation.basic.KNNAnnotator;
+import org.openimaj.ml.annotation.linear.LiblinearAnnotator;
+import uk.ac.soton.ecs.comp3204.group5.Helper;
+import uk.ac.soton.ecs.comp3204.group5.Record;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /**
- * COMP3204 Group 5 Run 1
- *
- *
+ * COMP3204 - Computer Vision
+ * Code for Run 1 - KNNAnnotator using Tiny Images
  */
 public class App {
-	
-	static DoubleNearestNeighboursExact knn;
-	static ArrayList<String> classes;
+    private static final String filepathTraining = "C:\\Users\\Nawab\\Downloads\\training";
+    private static final String filepathTesting = "C:\\Users\\Nawab\\Downloads\\testing";
+    private static final String filepathOutput = "C:\\Users\\Nawab\\Downloads\\run1.txt";
 
-	/**
-	 * Creates tiny image feature from FImage parameter
-	 *
-	 */
-	public static double[] getTinyImageFeature(FImage input) {
-		//get smallest side and crop image so both width and height are equal to smallest side
-		int minSide = Math.min(input.height , input.width);
-		FImage cropped = input.extractCenter(minSide, minSide);
+    /**
+     * This function generates 10 different splits of data for k values up to 30 and evaluates the performance
+     *  of the classifier
+     * */
+    public static void testEnvironment() throws Exception {
+        TinyImageExtractor tinyImageExtractor = new TinyImageExtractor(16);
 
-		//resizes image to 16 by 16 pixels and normalises this image
-		FImage processed = ResizeProcessor.resample(cropped, 16, 16).normalise();
+        VFSGroupDataset<FImage> input = new VFSGroupDataset<FImage>(filepathTraining, ImageUtilities.FIMAGE_READER);
 
-		//concatenates image rows into double vector
-		double[] output = processed.getDoublePixelVector();
-		return output;
-	}
+        for(int k = 1; k < 30; k++) {
+            System.out.println("EVALUATE CLASSIFIER K = " + k);
+            double result = 0;
+            for(int i = 1; i < 10; i++) {
+                // Use GroupedRandomSplitter to generate train and test dataset
+                GroupedRandomSplitter<String, Record> splitter = new GroupedRandomSplitter(input,75,0,25);
+                // Generator KNN annotator which uses the euclidean distance between images
+                KNNAnnotator<Record, String, TinyImageExtractor> knnAnnotator = new KNNAnnotator(tinyImageExtractor, DoubleFVComparison.EUCLIDEAN, k);
 
-	/**
-	 * trains K Nearest Neighbours and stores this in global "knn" variable
-	 * - uses ListDataset instead of VFSListDataset
-	 * - stores the image classes in the global arraylist so we can retrieve the neighbour classes when we test our model
-	 */
-	public static void trainKNN(GroupedDataset<String, ListDataset<FImage>, FImage> training) {
-		classes = new ArrayList<String>();
-		ArrayList<double[]> vectors = new ArrayList<double[]>();
-		//iterate through all training images and generate tiny image feature vectors
-		for(final Entry<String, ListDataset<FImage>> entry : training.entrySet()){
-			for(FImage img : entry.getValue()) {
-				classes.add(entry.getKey());
-				vectors.add(getTinyImageFeature(img));
-			}
-		}
-		//use constructor with feature vector array to train knn model
-		knn = new DoubleNearestNeighboursExact(vectors.toArray(new double[][]{}));
-	}
-	/**
-	 * trains K Nearest Neighbours and stores this in global "knn" variable
-	 * - uses VFSListDataset instead of ListDataset
-	 * - stores the image classes in the global arraylist so we can retrieve the neighbour classes when we test our model
-	 */
-	private static void VFStrainKNN(GroupedDataset<String, VFSListDataset<FImage>, FImage> training) {
-		classes = new ArrayList<String>();
-		ArrayList<double[]> vectors = new ArrayList<double[]>();
-		//iterate through all training images and generate tiny image feature vectors
-		for(final Entry<String, VFSListDataset<FImage>> entry : training.entrySet()){
-			for(FImage img : entry.getValue()) {
-				classes.add(entry.getKey());
-				vectors.add(getTinyImageFeature(img));
-			}
-		}
-		//use constructor with feature vector array to train knn model
-		knn = new DoubleNearestNeighboursExact(vectors.toArray(new double[][]{}));
-	}
+                // Train the annotator on the training data
+                knnAnnotator.trainMultiClass(splitter.getTrainingDataset());
 
-	/**
-	 * tests accuracy of K nearest neighbour classifier
-	 *
-	 */
-	public static double testKNN(GroupedDataset<String, ListDataset<FImage>, FImage> testing , int k, boolean printResults) {
-		int total = 0;
-		int correct = 0;
-		//iterate through all images in test dataset
-		for(final Entry<String, ListDataset<FImage>> entry : testing.entrySet()){
-			for(FImage img : entry.getValue()) {
-				//searches for k nearest neighbours
-				List<IntDoublePair> result = knn.searchKNN(getTinyImageFeature(img), k);
+                // Evaluate the outcome of the test data set
+                ClassificationEvaluator<CMResult<String>, String, Record> eval =
+                        new ClassificationEvaluator<>(
+                                knnAnnotator, splitter.getTestDataset(), new CMAnalyser<Record, String>(CMAnalyser.Strategy.SINGLE));
 
-				//store each neighbour class into a map and retrieve most common class
-				Map<String,Integer> tally = new HashMap<String,Integer>();
-				for(IntDoublePair pair : result) {
-					String name = classes.get(pair.getFirst());
-					if(tally.containsKey(name)) {
-						tally.put(name, tally.get(name)+1);
-					}
-					else {
-						tally.put(name,1);
-					}
-				}
-				String finalRes = "";
-				int best = 0;
-				for(Map.Entry<String, Integer> e : tally.entrySet()) {
-					if(best < e.getValue()) {
-						finalRes = e.getKey();
-						best = e.getValue();
-					}
-				}
+                Map<Record, ClassificationResult<String>> guesses = eval.evaluate();
+                result += eval.analyse(guesses).getMatrix().getAccuracy();
 
-				total++;
-				//if the most common result is equal to the expected class then increment correct total
-				if(finalRes == entry.getKey()) {
-					correct++;
-				}
-			}
-		}
-		//calculate accuracy percentage
-		double accuracy = ((double)correct / (double)total ) * 100;
-		if(printResults) {
-			System.out.println("correct: " + correct);
-			System.out.println("total: "  + total);
-			System.out.println("accuracy: " + accuracy);
-		}
-		return accuracy;
-	}
+            }
+            // Average the accuracy
+            System.out.println(result / 10);
+        }
+    }
 
-	/**
-	 * classify unlabelled dataset using knn classifier
-	 *
-	 */
-	public static ArrayList<String> classKNN(VFSListDataset<FImage> testing , int k) {
-		ArrayList<String> classifications = new ArrayList<String>();
-		//iterate through each image using index for easy image ID retrieval
-		for(int i = 0 ; i < testing.size() ; i++) {
-			FImage img = testing.get(i);
-			//get k nearest neighbours of current image feature vector
-			List<IntDoublePair> result = knn.searchKNN(getTinyImageFeature(img), k);
+    public static void main(String[] args) throws Exception {
+        // Feature Extractor for TinyImages
+        TinyImageExtractor tinyImageExtractor = new TinyImageExtractor(16);
 
-			//use map to retrieve most common class of neighbours
-			Map<String,Integer> tally = new HashMap<String,Integer>();
-			for(IntDoublePair pair : result) {
-				String name = classes.get(pair.getFirst());
-				if(tally.containsKey(name)) {
-					tally.put(name, tally.get(name)+1);
-				}
-				else {
-					tally.put(name,1);
-				}
-			}
-			String finalRes = "";
-			int best = 0;
-			for(Map.Entry<String, Integer> entry : tally.entrySet()) {
-				if(best < entry.getValue()) {
-					finalRes = entry.getKey();
-					best = entry.getValue();
-				}
-			}
-			//generate "<image_name> <predicted_class>" string
-			String outputRes = testing.getID(i) + " ";
-			outputRes += finalRes;
-			classifications.add(outputRes);
-		}
-		return classifications;
-	}
+        // Import training and testing data
+        VFSGroupDataset<FImage> training = new VFSGroupDataset<FImage>(filepathTraining, ImageUtilities.FIMAGE_READER);
 
-	/**
-	 * run function for predicting classes for test data
-	 * prints classification results in required format
-	 */
-	public static void classificationRun(){
-		try {
-			//get training and testing dataset using filepaths
-			GroupedDataset<String, VFSListDataset<FImage>, FImage> train =new VFSGroupDataset<FImage>("/Users/shintaroonuma/Documents/cwImages/training", ImageUtilities.FIMAGE_READER);
-			VFSListDataset<FImage> test = new VFSListDataset<FImage>("/Users/shintaroonuma/Documents/cwImages/testing", ImageUtilities.FIMAGE_READER);
-    		//GroupedDataset<String, ListDataset<FImage>, FImage> trainNewFormat = splitter.getTrainingDataset();
+        // Create KNN Annotator using Tiny Image feature extractor using EUCLIDEAN FV comparator and k = 15
+        // k = 15 was learned as the best value of K using a 75/25 split from the training data
+        KNNAnnotator<FImage, String, TinyImageExtractor> knnAnnotator = new KNNAnnotator(tinyImageExtractor, DoubleFVComparison.EUCLIDEAN, 15);
 
-			//train KNN using training dataset
-    		VFStrainKNN(train);
+        // Train annotator on training data
+        knnAnnotator.trainMultiClass(training);
+        testEnvironment();
+        // Annotate the unlabelled testing data and output the best value for each image
+        /** This is equivalent to Helper::makePredictions */
 
-    		//get and print classification results of training dataset
-    		ArrayList<String> ans = classKNN(test,1);
-    		for(String s : ans) {
-    			System.out.println(s);
-    		}
+        BufferedWriter writer = new BufferedWriter(new FileWriter(filepathOutput));
+        VFSListDataset<FImage> testing = new VFSListDataset<FImage>(filepathTesting, ImageUtilities.FIMAGE_READER);
 
-    	} catch (FileSystemException e) {
-			e.printStackTrace();
-		}
-	}
+        for (int i = 0; i < testing.size(); i++) {
+            List<ScoredAnnotation<String>> result = knnAnnotator.annotate(testing.get(i));
+            Collections.sort(result, Collections.reverseOrder());
+            String outputRes = testing.getID(i) + " ";
+            outputRes += result.get(0).annotation;
+            writer.write(outputRes);
+            writer.newLine();
+        }
+        writer.close();
 
-
-	/**
-	 * run function for calculating accuracy values for various k values for our nearest neighbour classfication
-	 *
-	 */
-	public static void accuracyRun(){
-		try {
-			
-			VFSGroupDataset<FImage> input = new VFSGroupDataset<FImage>("/Users/shintaroonuma/Documents/cwImages/training", ImageUtilities.FIMAGE_READER);
-			
-			int iter = 20;
-			double a1 = 0;
-			double a2 = 0;
-			double a3 = 0;
-			double a4 = 0;
-			double a5 = 0;
-			double a6 = 0;
-			double a7 = 0;
-			double a8 = 0;
-			double a9 = 0;
-			double a10 = 0;
-			//generate new randomly split dataset and calculate accuracies for each k value
-			for(int i = 0 ; i < iter ; i++) {
-				//use GroupedRandomSplitter to generate train and test dataset
-				GroupedRandomSplitter<String,FImage> splitter = new GroupedRandomSplitter(input,80,0,20);
-	    		GroupedDataset<String, ListDataset<FImage>, FImage> train = splitter.getTrainingDataset();
-	    		GroupedDataset<String, ListDataset<FImage>, FImage> test = splitter.getTestDataset();
-	    		//train new knn classifier using train dataset
-	    		trainKNN(train);
-	    		//add accuracy percentage for each k value to respective variables
-	    		a1 += testKNN(test,1,false);
-	    		a2 += testKNN(test,2,false);
-	    		a3 += testKNN(test,3,false);
-	    		a4 += testKNN(test,4,false);
-	    		a5 += testKNN(test,5,false);
-	    		a6 += testKNN(test,6,false);
-	    		a7 += testKNN(test,7,false);
-	    		a8 += testKNN(test,8,false);
-	    		a9 += testKNN(test,9,false);
-	    		a10 += testKNN(test,10,false);
-			}
-			a1 = a1 / iter;
-			a2 = a2/iter;
-			a3 = a3 / iter;
-			a4 = a4/iter;
-			a5 = a5/iter;
-			a6 = a6/iter;
-			a7 = a7 / iter;
-			a8 = a8/iter;
-			a9 = a9/iter;
-			a10 = a10/iter;
-			
-			System.out.format("k = 1: %.2f  ", a1);
-			System.out.format("k = 2: %.2f  ", a2);
-			System.out.format("k = 3: %.2f  ", a3);
-			System.out.format("k = 4: %.2f  ", a4);
-			System.out.format("k = 5: %.2f  ", a5);
-			System.out.format("k = 6: %.2f  ", a6);
-			System.out.format("k = 7: %.2f  ", a7);
-			System.out.format("k = 8: %.2f  ", a8);
-			System.out.format("k = 9: %.2f  ", a9);
-			System.out.format("k = 10: %.2f  ", a10);
-    	} catch (FileSystemException e) {
-			e.printStackTrace();
-		}
-	}
-	
-	
-    public static void main( String[] args ) {
-    	//classificationRun();
-    	accuracyRun();
     }
 }
-

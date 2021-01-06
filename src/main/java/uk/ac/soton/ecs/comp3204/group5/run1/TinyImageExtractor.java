@@ -6,6 +6,7 @@ import org.openimaj.image.FImage;
 import org.openimaj.image.processing.algorithm.MeanCenter;
 import org.openimaj.image.processing.resize.ResizeProcessor;
 
+/** A feature extractor that extracts Tiny Images */
 public class TinyImageExtractor implements FeatureExtractor<DoubleFV, FImage> {
 
     private int size;
