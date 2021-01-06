@@ -1,29 +1,23 @@
 package uk.ac.soton.ecs.comp3204.group5.run1;
 
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-
 import org.apache.commons.vfs2.FileSystemException;
 import org.openimaj.data.dataset.GroupedDataset;
 import org.openimaj.data.dataset.ListDataset;
 import org.openimaj.data.dataset.VFSGroupDataset;
 import org.openimaj.data.dataset.VFSListDataset;
 import org.openimaj.experiment.dataset.split.GroupedRandomSplitter;
-import org.openimaj.image.DisplayUtilities;
 import org.openimaj.image.FImage;
 import org.openimaj.image.ImageUtilities;
-import org.openimaj.image.MBFImage;
-import org.openimaj.image.colour.ColourSpace;
-import org.openimaj.image.colour.RGBColour;
-import org.openimaj.image.processing.convolution.FGaussianConvolve;
 import org.openimaj.image.processing.resize.ResizeProcessor;
-import org.openimaj.image.typography.hershey.HersheyFont;
 import org.openimaj.knn.DoubleNearestNeighboursExact;
 import org.openimaj.util.pair.IntDoublePair;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 /**
  * COMP3204 Group 5 Run 1

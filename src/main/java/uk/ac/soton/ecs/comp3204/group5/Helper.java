@@ -10,11 +10,9 @@ import org.openimaj.image.FImage;
 import org.openimaj.image.ImageUtilities;
 import org.openimaj.image.feature.local.keypoints.FloatKeypoint;
 import org.openimaj.image.pixel.sampling.RectangleSampler;
-import org.openimaj.image.processing.resize.ResizeProcessor;
 import org.openimaj.math.geometry.shape.Rectangle;
 import org.openimaj.ml.annotation.AbstractAnnotator;
 import org.openimaj.ml.annotation.ScoredAnnotation;
-import org.openimaj.ml.annotation.linear.LiblinearAnnotator;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -24,19 +22,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Contains various helper functions for the main classes
+ */
 public class Helper {
-    //probably deperecated class, does the same thing as the other one but for FloatKeypoint objects
-    public static LocalFeatureList<FloatKeypoint> createLocalFeatureList(FImage image) {
-        ArrayList<FloatKeypoint> keypoints = new ArrayList<>();
-        RectangleSampler sampler = new RectangleSampler(image.normalise(),4,4,8,8);
-        List<Rectangle> rectangles = sampler.allRectangles();
-        for(Rectangle r : rectangles) {
-            FImage rImg = image.extractROI(r).normalise();
-            float[] rVector = rImg.getFloatPixelVector();
-            keypoints.add(new FloatKeypoint(r.x, r.y, 0, 1, rVector));
-        }
-        return new MemoryLocalFeatureList<>(keypoints);
-    }
 
     /**
      * Creates a local feature list of densely sampled pixel patches flattened into a vector
@@ -82,25 +71,12 @@ public class Helper {
         return recordDataset;
     }
 
-    public static GroupedDataset<String, ListBackedDataset<FImage>, FImage> convertToNormalisedDataset(VFSGroupDataset<FImage> originalDataset) {
-        GroupedDataset<String, ListBackedDataset<FImage>, FImage> recordDataset = new MapBackedDataset<>();
-        //iterate through each class in original dataset
-        ResizeProcessor resize = new ResizeProcessor(200, 200, false);
-        for (final Map.Entry<String, VFSListDataset<FImage>> entry : originalDataset.entrySet()) {
-            //create a ListBackedDataset of each image class
-            VFSListDataset<FImage> imageList = entry.getValue();
-            ListBackedDataset<FImage> recordList = new ListBackedDataset<>();
-            for (int i = 0; i < imageList.size(); i++) {
-                FImage image = imageList.get(i);
-                FImage newImage = image.process(resize).normalise();
-                recordList.add(newImage);
-            }
-            //add to GroupedDataset
-            recordDataset.put(entry.getKey(), recordList);
-        }
-        return recordDataset;
-    }
-
+    /**
+     * Trains the annotator on the testing data and outputs the result to a text file
+     * @param annotator - The trained classifier
+     * @param testingFilePath - The directory containing the test images
+     * @param outputLocation - File path of output text file
+     */
     public static void makePredictions(AbstractAnnotator<Record, String> annotator, String testingFilePath, String outputLocation) throws IOException {
 
         VFSListDataset<FImage> testing = new VFSListDataset<FImage>(testingFilePath, ImageUtilities.FIMAGE_READER);
@@ -121,5 +97,21 @@ public class Helper {
             writer.newLine();
         }
         writer.close();
+    }
+
+    /**
+     * Does the same thing as getPixelPatchFeatures but for FloatKeypoints instead
+     */
+    @Deprecated
+    public static LocalFeatureList<FloatKeypoint> createLocalFeatureList(FImage image) {
+        ArrayList<FloatKeypoint> keypoints = new ArrayList<>();
+        RectangleSampler sampler = new RectangleSampler(image.normalise(),4,4,8,8);
+        List<Rectangle> rectangles = sampler.allRectangles();
+        for(Rectangle r : rectangles) {
+            FImage rImg = image.extractROI(r).normalise();
+            float[] rVector = rImg.getFloatPixelVector();
+            keypoints.add(new FloatKeypoint(r.x, r.y, 0, 1, rVector));
+        }
+        return new MemoryLocalFeatureList<>(keypoints);
     }
 }

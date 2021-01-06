@@ -4,6 +4,9 @@ import org.openimaj.data.identity.Identifiable;
 import org.openimaj.image.FImage;
 import org.openimaj.image.ImageProvider;
 
+/**
+ * Implementation of the Caltech101 Record class for scene classification
+ */
 public class Record implements Identifiable, ImageProvider<FImage> {
 
     private final FImage image;

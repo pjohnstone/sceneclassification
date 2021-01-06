@@ -35,25 +35,34 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * COMP3204 - Computer Vision
+ * Code for Run 3 - Scene recognition using Pyramid Dense SIFT
+ */
 public class App {
-    private static final String filepath2 = "C:\\Users\\Akhilesh\\Downloads\\training";
+    private static final String filepath = "";
     public static void main( String[] args ) throws FileSystemException {
-        VFSGroupDataset<FImage> originalDataset = new VFSGroupDataset<>(filepath2, ImageUtilities.FIMAGE_READER);
+        // Load dataset into GroupedDataset of Records
+        VFSGroupDataset<FImage> originalDataset = new VFSGroupDataset<>(filepath, ImageUtilities.FIMAGE_READER);
         GroupedDataset<String, ListBackedDataset<Record>, Record> recordDataset = Helper.convertToGroupedDataset(originalDataset);
-        GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<>(recordDataset, 20, 0, 5);
+        GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<>(recordDataset, 80, 0, 20);
 
+        // Create Dense SIFT in Gaussian Pyramid
         DenseSIFT dsift = new DenseSIFT(3, 7);
-        PyramidDenseSIFT<FImage> pdsift = new PyramidDenseSIFT<FImage>(dsift, 6f, 4, 6, 8, 10);
+        PyramidDenseSIFT<FImage> pdsift = new PyramidDenseSIFT<>(dsift, 6f, 4, 6, 8, 10);
 
+        // Train the quantiser on a sample of the data
         HardAssigner<float[], float[], IntFloatPair> assigner =
                 trainQuantiser(GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 45), pdsift);
 
+        // Create set of linear classifiers and train the LiblinearAnnotator wrapped in a Homogeneous Kernel Map
         HomogeneousKernelMap hkm = new HomogeneousKernelMap(HomogeneousKernelMap.KernelType.Chi2, HomogeneousKernelMap.WindowType.Rectangular);
         FeatureExtractor<DoubleFV, Record> extractor = hkm.createWrappedExtractor(new PHOWExtractor(pdsift, assigner));
         LiblinearAnnotator<Record, String> ann = new LiblinearAnnotator<>(
                 extractor, LiblinearAnnotator.Mode.MULTICLASS, SolverType.L2R_L2LOSS_SVC, 1.0, 0.00001);
         ann.train(splitData.getTrainingDataset());
 
+        // Classify the test data and print the accuracy
         ClassificationEvaluator<CMResult<String>, String, Record> eval =
                 new ClassificationEvaluator<>(
                         ann, splitData.getTestDataset(), new CMAnalyser<Record, String>(CMAnalyser.Strategy.SINGLE));
@@ -62,11 +71,18 @@ public class App {
         CMResult<String> result = eval.analyse(guesses);
 
         System.out.println(result);
+
+        // To run the predictions, comment out the below code and train
+        // the annotator on the whole dataset rather than a test-train split
+        // Helper.makePredictions(ann, testFilepath, outputFilepath );
     }
 
-    static HardAssigner<float[], float[], IntFloatPair> trainQuantiser(
-            Dataset<Record> sample, PyramidDenseSIFT<FImage> pdsift)
-    {
+    /**
+     * Creates a vocabulary of visual words from a sample of images using K-means clustering of Dense SIFT patches
+     * @param sample - a subset of the training dataset
+     * @return a vocabulary of visual words
+     */
+    static HardAssigner<float[], float[], IntFloatPair> trainQuantiser(Dataset<Record> sample, PyramidDenseSIFT<FImage> pdsift) {
         List<LocalFeatureList<FloatDSIFTKeypoint>> allkeys = new ArrayList<>();
 
         for (Record rec : sample) {

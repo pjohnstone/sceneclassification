@@ -12,6 +12,9 @@ import org.openimaj.ml.clustering.assignment.HardAssigner;
 import org.openimaj.util.pair.IntFloatPair;
 import uk.ac.soton.ecs.comp3204.group5.Record;
 
+/**
+ * Pyramid Histogram of Words implementation for run 3
+ */
 public class PHOWExtractor implements FeatureExtractor<DoubleFV,Record> {
     PyramidDenseSIFT<FImage> pdsift;
     HardAssigner<float[], float[], IntFloatPair> assigner;

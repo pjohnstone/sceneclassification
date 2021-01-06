@@ -1,9 +1,11 @@
 package uk.ac.soton.ecs.comp3204.group5.run2;
 
 import de.bwaldvogel.liblinear.SolverType;
-import org.apache.commons.vfs2.FileSystemException;
 import org.openimaj.data.DataSource;
-import org.openimaj.data.dataset.*;
+import org.openimaj.data.dataset.GroupedDataset;
+import org.openimaj.data.dataset.ListBackedDataset;
+import org.openimaj.data.dataset.ListDataset;
+import org.openimaj.data.dataset.VFSGroupDataset;
 import org.openimaj.experiment.dataset.sampling.GroupedUniformRandomisedSampler;
 import org.openimaj.experiment.dataset.split.GroupedRandomSplitter;
 import org.openimaj.experiment.evaluation.classification.ClassificationEvaluator;
@@ -33,43 +35,42 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * COMP3204 - Computer Vision
+ * Code for Run 2 - LiblinearAnnotator using BoW based on fixed size densely-sampled pixel patches
+ */
 public class App {
-    private static final String filepath1 = "C:\\Users\\peter\\Downloads\\training";
+    private static final String filepath = "";
+
     public static void main( String[] args ) throws IOException {
-        //load dataset from file
+        // Load dataset into GroupedDataset of Records
         VFSGroupDataset<FImage> originalDataset = new VFSGroupDataset<>( "H:\\COMP3204\\training", ImageUtilities.FIMAGE_READER);
-        System.out.println("LOADED DATASET");
-        //convert to GroupedDataset to provide more functionality
         GroupedDataset<String, ListBackedDataset<Record>, Record> recordDataset = Helper.convertToGroupedDataset(originalDataset);
-        System.out.println("POPULATED RECORD DATASET");
-        //GroupedDataset<String, ListDataset<Record>, Record> sampledData = GroupSampler.sample(recordDataset, 5, false);
-
         GroupedRandomSplitter<String, Record> splitData = new GroupedRandomSplitter<>(recordDataset, 80, 0, 20);
-        System.out.println("SPLIT DATASET INTO TRAINING AND TESTING");
 
-        HardAssigner<float[], float[], IntFloatPair> assigner = trainQuantiser(GroupedUniformRandomisedSampler.sample(recordDataset, 30));
-        System.out.println("CLUSTERING DONE");
-        // use assigner to create a FeatureExtractor
+        // Train the quantiser on a sample of the data
+        HardAssigner<float[], float[], IntFloatPair> assigner =
+                trainQuantiser(GroupedUniformRandomisedSampler.sample(splitData.getTrainingDataset(), 30));
+
+        // Create set of linear classifiers and train the LiblinearAnnotator
         FeatureExtractor<SparseIntFV,Record> extractor = new BOVWExtractor(assigner);
-        // use FeatureExtractor to create classifier
         LiblinearAnnotator<Record, String> ann =
                 new LiblinearAnnotator<>(extractor, LiblinearAnnotator.Mode.MULTICLASS, SolverType.L2R_L2LOSS_SVC, 1.0, 0.00001);
-        // train classifier on dataset
-        System.out.println("TRAIN CLASSIFIER");
         ann.train(splitData.getTrainingDataset());
-        ann.train(recordDataset);
+
+        // Classify the test data and print the accuracy
         ClassificationEvaluator<CMResult<String>, String, Record> eval =
                 new ClassificationEvaluator<>(
                         ann, splitData.getTestDataset(), new CMAnalyser<Record, String>(CMAnalyser.Strategy.SINGLE));
-        System.out.println("EVALUATE CLASSIFIER");
+
         Map<Record, ClassificationResult<String>> guesses = eval.evaluate();
         CMResult<String> result = eval.analyse(guesses);
 
         System.out.println(result);
 
-        //if making predictions on test dataset, uncomment this code and make sure you're training on the whole dataset
-        //and change file locations accordingly
-        Helper.makePredictions(ann, "H:\\COMP3204\\testing", "H:\\COMP3204\\run2.txt" );
+        // To run the predictions, comment out the below code and train
+        // the annotator on the whole dataset rather than a test-train split
+        // Helper.makePredictions(ann, testFilepath, outputFilepath );
     }
 
     /**
